@@ -34,7 +34,7 @@ UNEXPECTED TOP-LEVEL EXCEPTION: java.lang.IllegalArgumentException: method ID no
 
 中搜索到这段。然后顺藤摸瓜，找到调用栈：
 
-![调用栈](/images/multidex/dex-merger-hier.png)
+![调用栈](/images/dex-merger-hier.png)
 
 最后红框的就是dx.jar的入口main函数，而且也和错误日志是一致的。
 
@@ -69,11 +69,11 @@ You may try using --multi-dex option.
 
 首先，要深入认识apk打包的整个流程：
 
-![APK打包流程](/images/multidex/android_packaging.png)
+![APK打包流程](/images/android_packaging.png)
 
 既然，需要定制dex生成，就必须要搞清楚dx命令，因为它就是提供multidex支持的最根本的地方：
 
-![dx命令](/images/multidex/dx-command.png)
+![dx命令](/images/dx-command.png)
 
 从dx命令的图看出，multidex的支持就是dx提供的。仔细看参数:
 {% codeblock %}
@@ -94,7 +94,7 @@ You may try using --multi-dex option.
 
 然后就想到，既然android gralde plugin是集成支持multidex的，那么它自然就有整个类似的过程。
 
-然后就不断反复查看构建的日志![构建日志](/images/multidex/find-build-log.png)，根据字面意思，发现几个关键的task:
+然后就不断反复查看构建的日志![构建日志](/images/find-build-log.png)，根据字面意思，发现几个关键的task:
 {% codeblock %}
 collectReleaseMultiDexComponents
 packageAllReleaseClassesForMultiDex
@@ -119,7 +119,7 @@ build\intermediates\multi-dex\release\allclasses.jar
 ### 3.shrinkReleaseMultiDexComponents
 
 从日志看：
-![shrinkReleaseMultiDexComponents日志](/images/multidex/shrink-classes.png)
+![shrinkReleaseMultiDexComponents日志](/images/shrink-classes.png)
 该task实际执行的就是proguard的shrink的过程。
 
 task的输出是build\intermediates\multi-dex\release\componentClasses.jar，这个jar的生成，是根据上面的task 1生成的manifest_keep.txt和task 2生成的classes.jar，可能还加上proguard文件，通过proguard shrink生成的。关于proguard shrink的详细内容就不展开叙述，可以参看相关资料，例如[android官网](http://developer.android.com/tools/help/proguard.html)、[proguard](http://proguard.sourceforge.net/index.html#manual/usage.html)。
@@ -234,9 +234,9 @@ task的输出是build\intermediates\multi-dex\release\componentClasses.jar，这
 ### 2.一级页面中通过反射调用的类，也要添加到依赖分析的input file中；
 ### 3.manifest中的receiver最好都添加到依赖分析的,因为receiver有可能拉起App；
 ### 4.参考美团实现中，hack Instrumentation的过程中发现，可能存在兼容性问题（实际测试了十多款手机，只有在小米2s上出现问题）。例如，在小米系统（api=16， 4.1.1）上，重载Instrucmentation的execStartActivity不被调用，发现Activity的mInstrucmentation field的类根本就不是Instrucmentation，所以导致没调用，甚至于用instanceof判断该对象是不是Instrumenttation对象都是true，简直不忍直视。。。证据:
-![suck](/images/multidex/xiaomi-suck-1.png)
-![suck](/images/multidex/xiaomi-suck-3.png)
-![suck](/images/multidex/xiaomi-suck-2.png)
+![suck](/images/xiaomi-suck-1.png)
+![suck](/images/xiaomi-suck-3.png)
+![suck](/images/xiaomi-suck-2.png)
 ### 5.改进dx.jar的依赖分析，可以完全地实现按需分配classes到main dex中；
 ### 6.关注gradle plugin的版本（这里使用1.3.1），如果后续的版本有修改，可能gradle脚本也要进行相应修改；
 ### 7.该方案不能解决Dalvik linearAlloc bug的issue，但是如果把main dex list控制得好，也就不是问题;
