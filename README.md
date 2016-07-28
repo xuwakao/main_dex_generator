@@ -6,7 +6,9 @@ tags: Android
 
 文章写了很久很久，今天再次看到一个相关的项目的[Android-Easy-MultiDex](https://github.com/TangXiaoLv/Android-Easy-MultiDex)，那么我也把自己的方案分享一下，代码待放。。。
 
-注意:使用的是gradle plugin 1.3.1,不支持1.5以后的(1.5后build task置换了)
+**注意:使用的是gradle plugin 1.3.1,不支持1.5以后的(1.5后build task置换了)**
+
+**技术交流可加 QQ : 1831594078**
 
 ---------------------------------------------------------------------------
 
