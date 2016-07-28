@@ -14,6 +14,8 @@ tags: Android
 
 然而，为什么会构建失败，这个65536限制究竟是在哪里？既然dex文件构建失败，首先想到肯定就是去dx.jar找原因。
 构建失败一般会有以下的日志：
+
+```
 {% codeblock %}
 UNEXPECTED TOP-LEVEL EXCEPTION: java.lang.IllegalArgumentException: method ID not in [0, 0xffff]: 65536 
     at com.android.dx.merge.DexMerger$6.updateIndex(DexMerger.java:501) 
@@ -27,6 +29,8 @@ UNEXPECTED TOP-LEVEL EXCEPTION: java.lang.IllegalArgumentException: method ID no
     at com.android.dx.command.dexer.Main.main(Main.java:199) 
     at com.android.dx.command.Main.main(Main.java:103):Derp:dexDerpDebug FAILED
 {% endcodeblock %}
+
+```
 
 那么就去搜索“method ID not in”和根据错误信息提示的堆栈，果然在DexMerger的方法：
 
@@ -50,12 +54,16 @@ You may try using --multi-dex option.
 
 # 又爱又恨的Multidex
 虽然google推出了multidex，然而，这个一个令人头疼的方案。对此，官方明确指出了方案的limitation：
+
+```
 {% blockquote %}
 **1.**The installation of .dex files during startup onto a device's data partition is complex and can result in **Application Not Responding (ANR)** errors if the secondary dex files are large. In this case, you should apply code shrinking techniques with ProGuard to minimize the size of dex files and remove unused portions of code.
 **2.**Applications that use multidex may not start on devices that run versions of the platform earlier than Android 4.0 (API level 14) due to a Dalvik linearAlloc bug ([Issue 22586](https://code.google.com/p/android/issues/detail?id=22586)). If you are targeting API levels earlier than 14, make sure to perform testing with these versions of the platform as your application can have issues at startup or when particular groups of classes are loaded. Code shrinking can reduce or possibly eliminate these potential issues.
 **3.**Applications using a multidex configuration that make very large memory allocation requests may crash during run time due to a Dalvik linearAlloc limit ([Issue 78035](https://code.google.com/p/android/issues/detail?id=78035)). The allocation limit was increased in Android 4.0 (API level 14), but apps may still run into this limit on Android versions prior to Android 5.0 (API level 21).
 **4.**There are complex requirements regarding what classes are needed in the primary dex file when executing in the Dalvik runtime. The Android build tooling updates handle the Android requirements, but it is possible that other included libraries have additional dependency requirements including the use of introspection or invocation of Java methods from native code. Some libraries may not be able to be used until the multidex build tools are updated to allow you to specify classes that must be included in the primary dex file.
 {% endblockquote %}
+
+```
 
 从上面提到的第一点可以知道，dex的install过程比较复杂，容易引起ANR的发生。ANR发生的原因很简单，莫非就是在UI线程作耗时操作。那为什么不在非UI线程做，如果在非UI线程进行dex的install过程，这个问题不就迎刃而解。理想很丰满，现实很骨感。
 
@@ -76,9 +84,11 @@ You may try using --multi-dex option.
 ![dx命令](/images/dx-command.png)
 
 从dx命令的图看出，multidex的支持就是dx提供的。仔细看参数:
+```
 {% codeblock %}
 --main-dex-list=<file>
 {% endcodeblock %}
+```
 该参数实际意义就是，可以指定main dex的里面包含什么classes文件，那么它就是实现方案的基础。
 
 既然dx支持按需生成main dex，那么，如何产生main dex的classes列表就是**最最最核心的问题**了。
@@ -95,12 +105,14 @@ You may try using --multi-dex option.
 然后就想到，既然android gralde plugin是集成支持multidex的，那么它自然就有整个类似的过程。
 
 然后就不断反复查看构建的日志![构建日志](/images/find-build-log.png)，根据字面意思，发现几个关键的task:
+```
 {% codeblock %}
 collectReleaseMultiDexComponents
 packageAllReleaseClassesForMultiDex
 shrinkReleaseMultiDexComponents
 createReleaseMainDexClassList
 {% endcodeblock %}
+```
 
 然后一个个task来分析。
 ### 1.collectReleaseMultiDexComponents
@@ -133,7 +145,7 @@ task的输出是build\intermediates\multi-dex\release\componentClasses.jar，这
 那么问题来了，怎么能够按照自己的需要，产生自己的main dex list呢？
 其实产生main dex list的关键在task 3和task 4，因为main dex中究竟keep住哪些类，是根据task3产生的componentClasses.jar来的，而componentClasses.jar的class是作为root class存在，然后在task 4中找出这些root class相关联的classes。
 那么这个分析过程是如何的呢？再看日志。
-
+```
 {% codeblock %}
 15:08:28.098 [DEBUG] [org.gradle.api.internal.tasks.execution.ExecuteAtMostOnceTaskExecuter] Starting to execute task ':floor:createReleaseMainDexClassList'
 15:08:28.099 [DEBUG] [org.gradle.api.internal.tasks.execution.SkipUpToDateTaskExecuter] Determining if task ':floor:createReleaseMainDexClassList' is up-to-date
@@ -142,9 +154,10 @@ task的输出是build\intermediates\multi-dex\release\componentClasses.jar，这
 15:08:28.100 [DEBUG] [org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter] Executing actions for task ':floor:createReleaseMainDexClassList'.
 15:08:28.101 [INFO] [org.gradle.process.internal.DefaultExecHandle] Starting process 'command 'C:\Program Files\Java\jdk1.7.0_79\bin\java.exe''. Working directory: D:\xxxx\xxxxx\floor Command: C:\Program Files\Java\jdk1.7.0_79\bin\java.exe -Dfile.encoding=UTF-8 -Duser.country=CN -Duser.language=zh -Duser.variant -cp C:\Users\Administrator\AppData\Local\Android\android-sdk\build-tools\23.0.1\lib\dx.jar com.android.multidex.ClassReferenceListBuilder D:\xxxx\xxxx\floor\build\intermediates\multi-dex\release\componentClasses.jar D:\xxxx\xxxx\floor\build\intermediates\multi-dex\release\allclasses.jar
 {% endcodeblock %}
+```
 
 从日志得知，分析的过程是执行了dx.jar里面的[ClassReferenceListBuilder](https://android.googlesource.com/platform/dalvik/+/master/dx/src/com/android/multidex/ClassReferenceListBuilder.java)。经过一番查看，看到下面这段关键代码：
-
+```
 {% codeblock %}
         /**
      * @param jarOfRoots Archive containing the class files resulting of the tracing, typically
@@ -203,6 +216,7 @@ task的输出是build\intermediates\multi-dex\release\componentClasses.jar，这
     }
 
 {% endcodeblock %}
+```
 
 通过查看dx.jar源码，最后确定task 4的依赖分析过程是，根据[class字节码](https://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html)的[constant pool](https://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html#jvms-4.4)，找出类依赖，这些依赖包括super class，fields，methods，interfaces中出现的类依赖。而仔细看，这里的依赖分析仅仅是分析root classes的依赖，而root classes依赖的class的依赖是不包含在分析结果中，这就是我们异步加载multidex的时候出现ClassNotFounedException的**主要原因**。
 
