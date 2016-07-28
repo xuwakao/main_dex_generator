@@ -30,7 +30,7 @@ UNEXPECTED TOP-LEVEL EXCEPTION: java.lang.IllegalArgumentException: method ID no
 
 那么就去搜索“method ID not in”和根据错误信息提示的堆栈，果然在DexMerger的方法：
 
-![mergeMethodIds](/images/multidex/0xffffff-limit.png)。
+![mergeMethodIds](/images/0xffffff-limit.png)。
 
 中搜索到这段。然后顺藤摸瓜，找到调用栈：
 
