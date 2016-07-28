@@ -98,9 +98,11 @@ You may try using --multi-dex option.
 既然dx支持按需生成main dex，那么，如何产生main dex的classes列表就是**最最最核心的问题**了。
 
 这个问题困扰了很久，实现这个有两种办法：
-1. 每次打包，都运行一次，然后通过程序，找出程序启动后固定时间内（例如直到第一个界面resume）的所有classes。类似这里提到的[方案](https://medium.com/groupon-eng/android-s-multidex-slows-down-app-startup-d9f10b46770f#.ogmk4ytsu)。
+```
+**1. 每次打包，都运行一次，然后通过程序，找出程序启动后固定时间内（例如直到第一个界面resume）的所有classes。**类似这里提到的[方案](https://medium.com/groupon-eng/android-s-multidex-slows-down-app-startup-d9f10b46770f#.ogmk4ytsu)。
 
-2. 编译过程，就通过程序或者脚本，分析出依赖来生成main dex。
+**2. 编译过程，就通过程序或者脚本，分析出依赖来生成main dex。**
+```
 
 第一个方案可行，但是很不理想，自动化太差。毕竟特别对于release版本牵涉到proguard的问题，要进行重新mapping的处理，才能找到所需class文件，而且需要二次打包，显得过于笨拙。
 
